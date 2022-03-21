@@ -48,16 +48,19 @@ module.exports = class Server {
         resave: true,
         saveUninitialized: true,
       }))
-      .get('/metrics', Util.promisify(async (req, res) => {
+      .get('/metrics', (req, res) => {
         res.setHeader('Content-Type', countRegister.contentType);
-        const clients = await WireGuard.getClients();
         countRegister.resetMetrics();
-        clients.forEach(cl => {
-          transferRx.inc({ client: cl.name }, cl.transferRx);
-          transferTx.inc({ client: cl.name }, cl.transferTx);
-        });
-        res.end(await countRegister.metrics());
-      }))
+        WireGuard.getClients().then(
+          clients => {
+            clients.forEach(cl => {
+              transferRx.inc({ client: cl.name }, cl.transferRx);
+              transferTx.inc({ client: cl.name }, cl.transferTx);
+            });
+            countRegister.metrics().then(val => res.send(val));
+          },
+        );
+      })
 
       .get('/api/release', (Util.promisify(async () => {
         return RELEASE;
