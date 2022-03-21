@@ -6,9 +6,28 @@ const express = require('express');
 const expressSession = require('express-session');
 const debug = require('debug')('Server');
 
+const client = require('prom-client');
 const Util = require('./Util');
 const ServerError = require('./ServerError');
 const WireGuard = require('../services/WireGuard');
+
+// Create a Registry which registers the metrics
+const countRegister = new client.Registry();
+
+const transferRx = new client.Counter({
+  name: 'transferRx',
+  help: 'Received bytes',
+  labelNames: ['client'],
+});
+
+const transferTx = new client.Counter({
+  name: 'transferTx',
+  help: 'Transmitted bytes',
+  labelNames: ['client'],
+});
+
+countRegister.registerMetric(transferRx);
+countRegister.registerMetric(transferTx);
 
 const {
   PORT,
@@ -28,6 +47,16 @@ module.exports = class Server {
         secret: String(Math.random()),
         resave: true,
         saveUninitialized: true,
+      }))
+      .get('/metrics', Util.promisify(async (req, res) => {
+        res.setHeader('Content-Type', countRegister.contentType);
+        const clients = await WireGuard.getClients();
+        countRegister.resetMetrics();
+        clients.forEach(cl => {
+          transferRx.inc({ client: cl.name }, cl.transferRx);
+          transferTx.inc({ client: cl.name }, cl.transferTx);
+        });
+        res.end(await countRegister.metrics());
       }))
 
       .get('/api/release', (Util.promisify(async () => {
