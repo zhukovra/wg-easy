@@ -26,8 +26,15 @@ const transferTx = new client.Counter({
   labelNames: ['client'],
 });
 
+const latestHandshakeSec = new client.Gauge({
+  name: 'latestHandshakeSec',
+  help: 'Latest handshake in seconds',
+  labelNames: ['client'],
+});
+
 countRegister.registerMetric(transferRx);
 countRegister.registerMetric(transferTx);
+countRegister.registerMetric(latestHandshakeSec);
 
 const {
   PORT,
@@ -54,6 +61,8 @@ module.exports = class Server {
         WireGuard.getClients().then(
           clients => {
             clients.forEach(cl => {
+              const latest = cl.latestHandshakeAt instanceof Date ? new Date().getSeconds() - cl.latestHandshakeAt.getSeconds() : 0;
+              latestHandshakeSec.set({ client: cl.name }, latest);
               transferRx.inc({ client: cl.name }, cl.transferRx);
               transferTx.inc({ client: cl.name }, cl.transferTx);
             });
