@@ -35,7 +35,7 @@ RUN npm i -g nodemon
 
 # Install Linux packages
 RUN apk add -U --no-cache \
-  wireguard-tools \
+  wireguard-tools tcpdump \
   dumb-init
 
 # Expose Ports
